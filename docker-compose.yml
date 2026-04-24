@@ -1,0 +1,114 @@
+version: "3.9"
+
+services:
+  # ── PostgreSQL ────────────────────────────────────────────────
+  postgres:
+    image: postgres:15-alpine
+    container_name: sentinel-db
+    environment:
+      POSTGRES_DB: cloudops
+      POSTGRES_USER: sentinel
+      POSTGRES_PASSWORD: sentinel_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sentinel -d cloudops"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ── Simulated Linux Nodes (5 nodes) ──────────────────────────
+  node-01:
+    image: python:3.11-slim
+    container_name: sentinel-node-01
+    hostname: node-01
+    environment:
+      NODE_ROLE: web
+      NODE_ENV: production
+      SIMULATE_FAULT: "none"
+    command: python /app/node_agent.py
+    volumes:
+      - ./scripts/node_agent.py:/app/node_agent.py
+    ports:
+      - "9101:9100"
+
+  node-02:
+    image: python:3.11-slim
+    container_name: sentinel-node-02
+    hostname: node-02
+    environment:
+      NODE_ROLE: web
+      NODE_ENV: production
+      SIMULATE_FAULT: "none"
+    command: python /app/node_agent.py
+    volumes:
+      - ./scripts/node_agent.py:/app/node_agent.py
+    ports:
+      - "9102:9100"
+
+  node-03:
+    image: python:3.11-slim
+    container_name: sentinel-node-03
+    hostname: node-03
+    environment:
+      NODE_ROLE: app
+      NODE_ENV: production
+      SIMULATE_FAULT: "high_disk"   # ← injects a fault for demo
+    command: python /app/node_agent.py
+    volumes:
+      - ./scripts/node_agent.py:/app/node_agent.py
+    ports:
+      - "9103:9100"
+
+  node-04:
+    image: python:3.11-slim
+    container_name: sentinel-node-04
+    hostname: node-04
+    environment:
+      NODE_ROLE: db
+      NODE_ENV: production
+      SIMULATE_FAULT: "service_down"  # ← injects a fault for demo
+    command: python /app/node_agent.py
+    volumes:
+      - ./scripts/node_agent.py:/app/node_agent.py
+    ports:
+      - "9104:9100"
+
+  node-05:
+    image: python:3.11-slim
+    container_name: sentinel-node-05
+    hostname: node-05
+    environment:
+      NODE_ROLE: cache
+      NODE_ENV: production
+      SIMULATE_FAULT: "none"
+    command: python /app/node_agent.py
+    volumes:
+      - ./scripts/node_agent.py:/app/node_agent.py
+    ports:
+      - "9105:9100"
+
+  # ── CloudOps Sentinel API ─────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sentinel-api
+    environment:
+      DATABASE_URL: postgresql://sentinel:sentinel_pass@postgres:5432/cloudops
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      NODE_HOSTS: node-01:9100,node-02:9100,node-03:9100,node-04:9100,node-05:9100
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./config:/app/config
+    command: uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
+
+volumes:
+  postgres_data:

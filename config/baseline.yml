@@ -1,0 +1,98 @@
+# config/baseline.yml
+# Desired state declarations for each node role.
+# The DriftDetector compares live node state against these baselines.
+# Conceptually mirrors a Puppet role manifest.
+
+thresholds:
+  disk_percent:   85.0
+  cpu_percent:    90.0
+  memory_percent: 90.0
+  load_avg_1m:    10.0
+
+collection:
+  interval_seconds: 60
+  timeout_seconds:  5
+  retry_attempts:   3
+
+baselines:
+  # Applied to all nodes regardless of role
+  global:
+    roles: [web, app, db, cache]
+    required_packages:
+      - python3
+      - curl
+      - vim
+      - htop
+    required_services:
+      - node_exporter
+      - filebeat
+    sysctl_params:
+      vm.swappiness: "10"
+      net.ipv4.tcp_fin_timeout: "30"
+
+  # Web tier — nginx-specific
+  web:
+    roles: [web]
+    required_packages:
+      - nginx
+      - python3
+      - curl
+    required_services:
+      - nginx
+      - node_exporter
+      - filebeat
+    package_versions:
+      nginx: "1.20.1"
+    sysctl_params:
+      vm.swappiness: "10"
+      net.core.somaxconn: "65535"
+
+  # App tier
+  app:
+    roles: [app]
+    required_packages:
+      - python3
+      - gunicorn
+      - curl
+    required_services:
+      - app_server
+      - gunicorn
+      - node_exporter
+      - filebeat
+    sysctl_params:
+      vm.swappiness: "10"
+
+  # Database tier
+  db:
+    roles: [db]
+    required_packages:
+      - postgresql
+      - python3
+      - curl
+    required_services:
+      - postgresql
+      - pgbouncer
+      - node_exporter
+      - filebeat
+    package_versions:
+      postgresql: "13.4"
+    sysctl_params:
+      vm.swappiness: "1"
+      kernel.shmmax: "68719476736"
+
+  # Cache tier
+  cache:
+    roles: [cache]
+    required_packages:
+      - redis
+      - python3
+      - curl
+    required_services:
+      - redis
+      - node_exporter
+      - filebeat
+    package_versions:
+      redis: "6.2.6"
+    sysctl_params:
+      vm.swappiness: "0"
+      net.core.somaxconn: "65535"
