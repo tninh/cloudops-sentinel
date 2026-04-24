@@ -32,23 +32,7 @@ A production-grade SRE tooling project that demonstrates the skills required for
                     └─────────────────────────────────────────┘
 ```
 
----
 
-## What This Project Demonstrates
-
-| Job Requirement | Implementation |
-|---|---|
-| Python development for infrastructure tooling | `collector/`, `remediator/`, `drift_detector/`, `ai_diagnostic/` |
-| Bash scripting for automation | `patching/patch_orchestrator.sh` |
-| Configuration management (Puppet/Ansible analog) | `drift_detector/` + `config/baseline.yml` |
-| Large-scale patching automation | Canary + batch + rollback orchestrator |
-| AI integration in operational workflows | Claude-powered incident triage |
-| PostgreSQL / database proficiency | Full schema, async queries via asyncpg |
-| ITIL change management | Every auto-remediation generates a `CHG-YYYYMMDD-XXXXX` record |
-| Design patterns & software fundamentals | Strategy pattern, dependency injection, dataclasses |
-| Production monitoring concepts | Alert thresholds, health snapshots, drift scoring |
-
----
 
 ## Project Structure
 
@@ -204,19 +188,4 @@ The AI diagnostic layer includes an explicit `escalate_to_human: bool` field. Wh
 
 ---
 
-## Interview Talking Points
 
-**"Walk me through a tool you built to replace manual work."**
-> The patching orchestrator. Before: an engineer SSH'd into nodes one by one. This implements canary validation, batch processing, automatic rollback when failure rate exceeds threshold, and state persistence so a mid-run restart doesn't lose progress. The structured JSON logs integrate directly with Splunk.
-
-**"How do you approach automation at scale?"**
-> The async collector is the answer — concurrent polling means adding 100 more nodes doesn't increase wall-clock collection time. I also designed the remediator so new playbook types are additive (Strategy pattern), not edits to existing code. That's critical when multiple team members are contributing automation.
-
-**"How are you integrating AI into operational workflows?"**
-> The AI diagnostic layer calls Claude with alert context and recent logs, then returns structured output including a confidence score and explicit escalation flag. The key design decision was making `escalate_to_human` a first-class field — the system knows its own limits. Every AI recommendation is persisted for audit, so we can retrospectively evaluate AI accuracy against actual outcomes.
-
-**"Tell me about your ITIL experience."**
-> Every automated remediation in this system generates a change record before execution. Alerts trigger incident records. Repeated alerts on the same node would correlate to a problem record. I modeled this explicitly because in a SaaS environment, even automated actions need an audit trail for compliance and post-incident review.
-
-**"What's your experience with config management tools like Puppet?"**
-> I built a lightweight drift detector that mirrors Puppet's core concept — declared desired state in YAML, continuous comparison against live state, violation scoring. In production I'd use Puppet for the actual enforcement, but owning the detection logic in Python means I can pipe violations into our own alerting and ticketing pipeline without depending on Puppet's reporting.
